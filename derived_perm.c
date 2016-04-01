@@ -46,6 +46,15 @@ void setup_derived_state(struct inode *inode, perm_t perm,
 	info->d_mode = mode;
 }
 
+bool is_multi_storage(struct sdcardfs_sb_info *sbi )
+{
+	struct sdcardfs_mount_options options = sbi->options;
+	if ((options.derive == DERIVE_MULTI) || (options.derive == DERIVE_PUBLIC))
+		return true;
+	else
+		return false;
+}
+
 void get_derived_permission(struct dentry *parent, struct dentry *dentry)
 {
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
@@ -79,15 +88,24 @@ void get_derived_permission(struct dentry *parent, struct dentry *dentry)
 			/* Legacy internal layout places users at top level */
 			info->perm = PERM_ROOT;
 			info->userid = simple_strtoul(dentry->d_name.name, NULL, 10);
+			if (is_multi_storage(sbi)) {
+				info->d_uid = sbi->options.upper_perms.uid;
+				info->d_gid = sbi->options.upper_perms.gid;
+				info->d_mode = sbi->options.upper_perms.dmask;
+			}
 			break;
 		case PERM_ROOT:
 			/* Assume masked off by default. */
-			info->d_mode = 00770;
+			if (!is_multi_storage(sbi)) {
+				info->d_mode = 00770;
+			}
+
 			if (!strcasecmp(dentry->d_name.name, "Android")) {
 				/* App-specific directories inside; let anyone traverse */
 				info->perm = PERM_ANDROID;
-				info->d_mode = 00771;
-			} else if (sbi->options.split_perms) {
+				if (!is_multi_storage(sbi))
+					info->d_mode = 00771;
+			} else if (!is_multi_storage(sbi) && sbi->options.split_perms) {
 				if (!strcasecmp(dentry->d_name.name, "DCIM")
 					|| !strcasecmp(dentry->d_name.name, "Pictures")) {
 					info->d_gid = AID_SDCARD_PICS;
@@ -105,26 +123,31 @@ void get_derived_permission(struct dentry *parent, struct dentry *dentry)
 			if (!strcasecmp(dentry->d_name.name, "data")) {
 				/* App-specific directories inside; let anyone traverse */
 				info->perm = PERM_ANDROID_DATA;
-				info->d_mode = 00771;
+				if (!is_multi_storage(sbi))
+					info->d_mode = 00771;
 			} else if (!strcasecmp(dentry->d_name.name, "obb")) {
 				/* App-specific directories inside; let anyone traverse */
 				info->perm = PERM_ANDROID_OBB;
-				info->d_mode = 00771;
+				if (!is_multi_storage(sbi))
+					info->d_mode = 00771;
 				// FIXME : this feature will be implemented later.
 				/* Single OBB directory is always shared */
 			/*lenovo-sw jixj 2014.12.26 add begin for android L*/
 			} else if (!strcasecmp(dentry->d_name.name, "media")) {
 				/* App-specific directories inside; let anyone traverse */
 				info->perm = PERM_ANDROID_MEDIA;
-				info->d_mode = 00771;
+				if (!is_multi_storage(sbi))
+					info->d_mode = 00771;
 			/*lenovo-sw jixj 2014.12.26 add end*/
 			} else if (!strcasecmp(dentry->d_name.name, "user")) {
 				/* User directories must only be accessible to system, protected
 				 * by sdcard_all. Zygote will bind mount the appropriate user-
 				 * specific path. */
 				info->perm = PERM_ANDROID_USER;
-				info->d_gid = AID_SDCARD_ALL;
-				info->d_mode = 00770;
+				if (!is_multi_storage(sbi)) {
+					info->d_gid = AID_SDCARD_ALL;
+					info->d_mode = 00770;
+				}
 			}
 			break;
 		/* same policy will be applied on PERM_ANDROID_DATA 
@@ -138,14 +161,17 @@ void get_derived_permission(struct dentry *parent, struct dentry *dentry)
 			if (appid != 0) {
 				info->d_uid = multiuser_get_uid(parent_info->userid, appid);
 			}
-			info->d_mode = 00770;
+			if (!is_multi_storage(sbi))
+				info->d_mode = 00770;
 			break;
 		case PERM_ANDROID_USER:
 			/* Root of a secondary user */
 			info->perm = PERM_ROOT;
 			info->userid = simple_strtoul(dentry->d_name.name, NULL, 10);
-			info->d_gid = AID_SDCARD_R;
-			info->d_mode = 00771;
+			if (!is_multi_storage(sbi)) {
+				info->d_gid = AID_SDCARD_R;
+				info->d_mode = 00771;
+			}
 			break;
 	}
 } 

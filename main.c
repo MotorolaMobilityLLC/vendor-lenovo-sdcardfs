@@ -28,7 +28,8 @@
 enum {
 	Opt_uid, 
 	Opt_gid, 
-	Opt_wgid, 
+	Opt_wgid,
+	Opt_upper_perms,
 	Opt_debug,
 	Opt_split,
 	Opt_derive,
@@ -41,6 +42,7 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_wgid, "wgid=%u"},
+	{Opt_upper_perms, "upper=%s"},
 	{Opt_debug, "debug"},
 	{Opt_split, "split"},
 	{Opt_derive, "derive=%s"},
@@ -49,6 +51,44 @@ static const match_table_t sdcardfs_tokens = {
 	{Opt_err, NULL}
 };
 
+static int parse_perms(struct sdcardfs_perms *perms, char *args)
+{
+	char *sep = args;
+	char *sepres;
+	int ret;
+
+	if (!sep)
+		return -EINVAL;
+
+	sepres = strsep(&sep, ":");
+	if (!sep)
+		return -EINVAL;
+	ret = kstrtou32(sepres, 0, &perms->uid);
+	if (ret)
+		return ret;
+
+	sepres = strsep(&sep, ":");
+	if (!sep)
+		return -EINVAL;
+	ret = kstrtou32(sepres, 0, &perms->gid);
+	if (ret)
+		return ret;
+
+	sepres = strsep(&sep, ":");
+	if (!sep)
+		return -EINVAL;
+	ret = kstrtou16(sepres, 8, &perms->fmask);
+	if (ret)
+		return ret;
+
+	sepres = strsep(&sep, ":");
+	ret = kstrtou16(sepres, 8, &perms->dmask);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int parse_options(struct super_block *sb, char *options, int silent, 
 				int *debug, struct sdcardfs_mount_options *opts)
 {
@@ -56,6 +96,8 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 	substring_t args[MAX_OPT_ARGS];
 	int option;
 	char *string_option;
+	int ret;
+	char *perms;
 
 	/* by default, we use AID_MEDIA_RW as uid, gid */
 	opts->fs_low_uid = AID_MEDIA_RW;
@@ -102,6 +144,17 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 				return 0;
 			opts->write_gid = option;
 			break;
+		case Opt_upper_perms:
+			perms = match_strdup(args);
+			if(perms) {
+				ret = parse_perms(&opts->upper_perms, perms);
+				kfree(perms);
+				if (ret)
+					return -EINVAL;
+			} else {
+				return -EINVAL;
+			}
+			break;
 		case Opt_split:
 			opts->split_perms=1;
 			break;
@@ -113,6 +166,10 @@ static int parse_options(struct super_block *sb, char *options, int silent,
 				opts->derive = DERIVE_LEGACY;
 			} else if (!strcmp("unified", string_option)) {
 				opts->derive = DERIVE_UNIFIED;
+			} else if (!strcmp("public", string_option)) {
+				opts->derive = DERIVE_PUBLIC;
+			} else if (!strcmp("multi", string_option)) {
+				opts->derive = DERIVE_MULTI;
 			} else {
 				kfree(string_option);
 				goto invalid_option;
@@ -328,6 +385,44 @@ static int sdcardfs_read_super(struct super_block *sb, const char *dev_name,
 				sb_info->obbpath_s = kzalloc(PATH_MAX, GFP_KERNEL);
 				snprintf(sb_info->obbpath_s, PATH_MAX, "%s/Android/obb", dev_name);
 				//printk(KERN_INFO "sdcardfs: unified oobpath -> %s\n", sb_info->obbpath_s);
+				break;
+			case DERIVE_PUBLIC:
+				setup_derived_state(sb->s_root->d_inode,
+				        PERM_ROOT, 0,
+				        sb_info->options.upper_perms.uid,
+				        sb_info->options.upper_perms.gid,
+				        00711);
+				/* initialize the obbpath string and lookup the path
+				 * sb_info->obb_path will be deactivated by path_put
+				 * on sdcardfs_put_super */
+				sb_info->obbpath_s = kzalloc(PATH_MAX, GFP_KERNEL);
+				snprintf(sb_info->obbpath_s, PATH_MAX, "%s/Android/obb", dev_name);
+				//printk(KERN_INFO "sdcardfs: legacy oobpath -> %s\n", sb_info->obbpath_s);
+				err =  prepare_dir(sb_info->obbpath_s,
+							sb_info->options.fs_low_uid,
+							sb_info->options.fs_low_gid, 00775);
+				if(err)
+					printk(KERN_ERR "sdcardfs: %s: %d, error on creating %s\n",
+							__func__,__LINE__, sb_info->obbpath_s);
+				break;
+			case DERIVE_MULTI:
+				setup_derived_state(sb->s_root->d_inode,
+				        PERM_LEGACY_PRE_ROOT, 0,
+				        sb_info->options.upper_perms.uid,
+				        sb_info->options.upper_perms.gid,
+				        00711);
+				/* initialize the obbpath string and lookup the path
+				 * sb_info->obb_path will be deactivated by path_put
+				 * on sdcardfs_put_super */
+				sb_info->obbpath_s = kzalloc(PATH_MAX, GFP_KERNEL);
+				snprintf(sb_info->obbpath_s, PATH_MAX, "%s/obb", dev_name);
+				//printk(KERN_INFO "sdcardfs: legacy oobpath -> %s\n", sb_info->obbpath_s);
+				err =  prepare_dir(sb_info->obbpath_s,
+							sb_info->options.fs_low_uid,
+							sb_info->options.fs_low_gid, 00775);
+				if(err)
+					printk(KERN_ERR "sdcardfs: %s: %d, error on creating %s\n",
+							__func__,__LINE__, sb_info->obbpath_s);
 				break;
 		}
 		fix_derived_permission(sb->s_root->d_inode);

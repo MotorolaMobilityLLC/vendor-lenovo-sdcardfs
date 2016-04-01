@@ -159,6 +159,8 @@ typedef enum {
 	DERIVE_NONE,
 	DERIVE_LEGACY,
 	DERIVE_UNIFIED,
+	DERIVE_MULTI,
+	DERIVE_PUBLIC,
 } derive_t;
 
 typedef enum {
@@ -231,6 +233,13 @@ struct sdcardfs_dentry_info {
 	struct path orig_path;
 };
 
+struct sdcardfs_perms {
+	uid_t uid;
+	gid_t gid;
+	unsigned short fmask;
+	unsigned short dmask;
+};
+
 struct sdcardfs_mount_options {
 	uid_t fs_low_uid;
 	gid_t fs_low_gid;
@@ -239,6 +248,7 @@ struct sdcardfs_mount_options {
 	derive_t derive;
 	lower_fs_t lower_fs;
 	unsigned int reserved_mb;
+	struct sdcardfs_perms upper_perms;	/* root in derived mode */
 };
 
 /* sdcardfs super-block data in memory */
