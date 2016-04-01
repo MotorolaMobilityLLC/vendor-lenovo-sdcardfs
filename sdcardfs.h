@@ -101,6 +101,7 @@ struct task_security_struct {
 		(x)->i_uid = SDCARDFS_I(x)->d_uid;	\
 		(x)->i_gid = SDCARDFS_I(x)->d_gid;	\
 		(x)->i_mode = ((x)->i_mode & S_IFMT) | SDCARDFS_I(x)->d_mode;\
+		(x)->i_mode = S_ISDIR((x)->i_mode) ? (x)->i_mode : ((x)->i_mode & ~(S_IXUSR | S_IXGRP | S_IXOTH));\
 	} while (0)
 
 /* OVERRIDE_CRED() and REVERT_CRED() 
