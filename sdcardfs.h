@@ -53,7 +53,7 @@
  * Old LOWER_FS_MIN_FREE_SIZE to 100MB.
  * Change New MIN_FREE_SIZE to 50MB cause of saving free memory.
  */
-#define LOWER_FS_MIN_FREE_SIZE  (50) /* 50MB */
+#define LOWER_FS_MIN_FREE_SIZE  (0) /* 0MB */
 
 /* the file system name */
 #define SDCARDFS_NAME "sdcardfs"
