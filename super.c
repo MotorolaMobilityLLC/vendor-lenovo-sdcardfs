@@ -25,6 +25,47 @@
  * vfs inode.
  */
 static struct kmem_cache *sdcardfs_inode_cachep;
+static LIST_HEAD(sdcardfs_list);
+static DEFINE_SPINLOCK(sdcardfs_list_lock);
+
+void sdcardfs_add_super(struct sdcardfs_sb_info *sbi, struct super_block *sb)
+{
+	sbi->s_sb = sb;
+	INIT_LIST_HEAD(&sbi->s_list);
+
+	spin_lock(&sdcardfs_list_lock);
+	list_add_tail(&sbi->s_list, &sdcardfs_list);
+	spin_unlock(&sdcardfs_list_lock);
+}
+
+static void sdcardfs_remove_super(struct sdcardfs_sb_info *sbi)
+{
+	spin_lock(&sdcardfs_list_lock);
+	list_del(&sbi->s_list);
+	spin_unlock(&sdcardfs_list_lock);
+}
+
+void sdcardfs_drop_shared_icache(struct super_block *sb, struct inode *lower_inode)
+{
+	struct list_head *p;
+	struct sdcardfs_sb_info *sbi;
+	struct super_block *lower_sb = lower_inode->i_sb;
+
+	spin_lock(&sdcardfs_list_lock);
+	p = sdcardfs_list.next;
+	while (p != &sdcardfs_list) {
+		sbi = list_entry(p, struct sdcardfs_sb_info, s_list);
+		if (sbi->s_sb == sb || sbi->lower_sb != lower_sb) {
+			p = p->next;
+			continue;
+		}
+		spin_unlock(&sdcardfs_list_lock);
+		sdcardfs_drop_sb_icache(sbi->s_sb, lower_inode->i_ino);
+		spin_lock(&sdcardfs_list_lock);
+		p = p->next;
+	}
+	spin_unlock(&sdcardfs_list_lock);
+}
 
 /* final actions when unmounting a file system */
 static void sdcardfs_put_super(struct super_block *sb)
@@ -54,6 +95,7 @@ static void sdcardfs_put_super(struct super_block *sb)
 	if(spd->pkgl_id)
 		packagelist_destroy(spd->pkgl_id);
 
+	sdcardfs_remove_super(spd);
 	kfree(spd);
 	sb->s_fs_info = NULL;
 }
