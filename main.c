@@ -284,6 +284,12 @@ static int sdcardfs_read_super(struct super_block *sb, const char *dev_name,
 	/* set the lower dentries for s_root */
 	sdcardfs_set_lower_path(sb->s_root, &lower_path);
 
+	#ifdef CONFIG_SECURITY_SELINUX
+	security_secctx_to_secid(SDCARDFS_LOWER_SECCTX,
+				 strlen(SDCARDFS_LOWER_SECCTX),
+				 &sb_info->lower_secid);
+	#endif
+
 	/* call interpose to create the upper level inode */
 	err = sdcardfs_interpose(sb->s_root, sb, &lower_path);
 	if (!err) {

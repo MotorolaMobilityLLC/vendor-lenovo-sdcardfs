@@ -29,6 +29,8 @@ static ssize_t sdcardfs_read(struct file *file, char __user *buf,
 	int err;
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
@@ -56,6 +58,7 @@ static ssize_t sdcardfs_read(struct file *file, char __user *buf,
 		fsstack_copy_attr_atime(dentry->d_inode,
 					file_inode(lower_file));
 
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -65,13 +68,17 @@ static ssize_t sdcardfs_write(struct file *file, const char __user *buf,
 	int err = 0;
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
 	/* check disk space */
 	if (!check_min_free_space(dentry, count, 0)) {
 		printk(KERN_INFO "No minimum free space.\n");
-		return -ENOSPC;
+		//return -ENOSPC;
+		err = -ENOSPC;
+		goto out_revert_cred;
 	}
 
 	lower_file = sdcardfs_lower_file(file);
@@ -84,6 +91,8 @@ static ssize_t sdcardfs_write(struct file *file, const char __user *buf,
 					file_inode(lower_file));
 	}
 
+out_revert_cred:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -92,6 +101,9 @@ static int sdcardfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	int err = 0;
 	struct file *lower_file = NULL;
 	struct dentry *dentry = file->f_path.dentry;
+
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
@@ -103,6 +115,8 @@ static int sdcardfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	if (err >= 0)		/* copy the atime */
 		fsstack_copy_attr_atime(dentry->d_inode,
 					file_inode(lower_file));
+
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -339,6 +353,8 @@ static int sdcardfs_fsync(struct file *file, loff_t start, loff_t end,
 	struct file *lower_file;
 	struct path lower_path;
 	struct dentry *dentry = file->f_path.dentry;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 	//2015.01.04  merge from latest wrapfs	
@@ -352,6 +368,7 @@ static int sdcardfs_fsync(struct file *file, loff_t start, loff_t end,
 	err = vfs_fsync_range(lower_file, start, end, datasync);
 	sdcardfs_put_lower_path(dentry, &lower_path);
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
