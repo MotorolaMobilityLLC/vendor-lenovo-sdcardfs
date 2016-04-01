@@ -125,6 +125,8 @@ static long sdcardfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = -ENOTTY;
 	struct file *lower_file;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	lower_file = sdcardfs_lower_file(file);
 
@@ -139,6 +141,7 @@ static long sdcardfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 		sdcardfs_copy_inode_attr(file_inode(file),
 				      file_inode(lower_file));
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -148,6 +151,8 @@ static long sdcardfs_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = -ENOTTY;
 	struct file *lower_file;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	lower_file = sdcardfs_lower_file(file);
 
@@ -158,6 +163,7 @@ static long sdcardfs_compat_ioctl(struct file *file, unsigned int cmd,
 		err = lower_file->f_op->compat_ioctl(lower_file, cmd, arg);
 
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 #endif
@@ -168,6 +174,8 @@ static int sdcardfs_mmap(struct file *file, struct vm_area_struct *vma)
 	bool willwrite;
 	struct file *lower_file;
 	const struct vm_operations_struct *saved_vm_ops = NULL;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	/* this might be deferred to mmap's writepage */
 	willwrite = ((vma->vm_flags | VM_SHARED | VM_WRITE) == vma->vm_flags);
@@ -231,6 +239,7 @@ static int sdcardfs_mmap(struct file *file, struct vm_area_struct *vma)
 		SDCARDFS_F(file)->lower_vm_ops = saved_vm_ops;
 
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -317,6 +326,8 @@ static int sdcardfs_flush(struct file *file, fl_owner_t id)
 {
 	int err = 0;
 	struct file *lower_file = NULL;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
@@ -327,6 +338,7 @@ static int sdcardfs_flush(struct file *file, fl_owner_t id)
 	// end for filemap 	
 		err = lower_file->f_op->flush(lower_file, id);
 	}
+	REVERT_CRED(saved_cred);
 
 	return err;
 }
@@ -376,12 +388,15 @@ static int sdcardfs_fasync(int fd, struct file *file, int flag)
 {
 	int err = 0;
 	struct file *lower_file = NULL;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
 	lower_file = sdcardfs_lower_file(file);
 	if (lower_file->f_op && lower_file->f_op->fasync)
 		err = lower_file->f_op->fasync(fd, lower_file, flag);
+	REVERT_CRED(saved_cred);
 
 	return err;
 }
@@ -390,9 +405,10 @@ static ssize_t sdcardfs_aio_read(struct kiocb *iocb, const struct iovec *iov,
 			       unsigned long nr_segs, loff_t pos)
 {
 	int err = -EINVAL;
-	struct file *file, *lower_file;
-
-	file = iocb->ki_filp;
+	struct file *file = iocb->ki_filp; 
+	struct file *lower_file;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG(" Just DBG: ! \n");
 
@@ -413,6 +429,7 @@ static ssize_t sdcardfs_aio_read(struct kiocb *iocb, const struct iovec *iov,
 		fsstack_copy_attr_atime(file->f_path.dentry->d_inode,
 					file_inode(lower_file));
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -420,9 +437,10 @@ static ssize_t sdcardfs_aio_write(struct kiocb *iocb, const struct iovec *iov,
 				unsigned long nr_segs, loff_t pos)
 {
 	int err = -EINVAL;
-	struct file *file, *lower_file;
-
-	file = iocb->ki_filp;
+	struct file *file = iocb->ki_filp;
+	struct file *lower_file;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG(" Just DBG: ! \n");
 
@@ -446,6 +464,7 @@ static ssize_t sdcardfs_aio_write(struct kiocb *iocb, const struct iovec *iov,
 					file_inode(lower_file));
 	}
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
@@ -459,6 +478,8 @@ static loff_t sdcardfs_file_llseek(struct file *file, loff_t offset, int whence)
 {
 	int err;
 	struct file *lower_file;
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(SDCARDFS_SB(file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 
@@ -470,6 +491,7 @@ static loff_t sdcardfs_file_llseek(struct file *file, loff_t offset, int whence)
 	err = generic_file_llseek(lower_file, offset, whence);
 
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 #if 0  //current kernel version don't support these api
