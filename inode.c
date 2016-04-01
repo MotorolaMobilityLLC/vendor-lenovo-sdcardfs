@@ -20,6 +20,23 @@
 
 #include "sdcardfs.h"
 
+#ifdef CONFIG_SECURITY_SELINUX
+static inline void sdcardfs_override_secid(struct sdcardfs_sb_info *sbi,
+					struct cred *creds)
+{
+	struct task_security_struct *tsec = creds->security;
+
+	if (sbi->lower_secid)
+		tsec->sid = sbi->lower_secid;
+
+	SDFS_DBG("sdcardfs_override_secid sec_id=%d", tsec->sid);
+}
+
+#else
+static inline void sdcardfs_override_secid(struct sdcardfs_sb_info *sbi,
+					struct cred *creds) {}
+#endif
+
 /* Do not directly use this function. Use OVERRIDE_CRED() instead. */
 const struct cred * override_fsids(struct sdcardfs_sb_info* sbi)
 {
@@ -31,7 +48,8 @@ const struct cred * override_fsids(struct sdcardfs_sb_info* sbi)
 		return NULL; 
 
 	cred->fsuid = sbi->options.fs_low_uid;
-	cred->fsgid = sbi->options.fs_low_gid; 
+	cred->fsgid = sbi->options.fs_low_gid;
+	sdcardfs_override_secid(sbi, cred);
 
 	old_cred = override_creds(cred); 
 
@@ -716,6 +734,8 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	struct path lower_path;
 	struct dentry *parent;
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
+	const struct cred *saved_cred;
+	OVERRIDE_CRED(sbi, saved_cred);
 
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
 	parent = dget_parent(dentry);
@@ -748,6 +768,8 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 
 	generic_fillattr(inode, stat);
 	sdcardfs_put_lower_path(dentry, &lower_path);
+
+	REVERT_CRED(saved_cred);
 	return 0;
 }
 
@@ -762,6 +784,7 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
 	struct dentry *parent;
 	int has_rw;
+	const struct cred *saved_cred;
 
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
 	inode = dentry->d_inode;
@@ -790,6 +813,8 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 
 	if (err)
 		goto out_err;
+
+	OVERRIDE_CRED(sbi, saved_cred);
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -865,6 +890,8 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);
+
+	REVERT_CRED(saved_cred);
 out_err:
 	return err;
 }

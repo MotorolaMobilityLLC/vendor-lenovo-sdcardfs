@@ -78,6 +78,24 @@
 
 #define AID_PACKAGE_INFO  1027
 
+#ifdef CONFIG_SECURITY_SELINUX
+#define SDCARDFS_LOWER_SECCTX "u:r:sdcardd:s0"
+
+
+/*
+ * Hack to be able to poke at the SID.  The Linux Security API does not provide
+ * a way to change just the SID in the creds (probably on purpose).
+ */
+struct task_security_struct {
+	u32 osid;		/* SID prior to last execve */
+	u32 sid;		/* current SID */
+	u32 exec_sid;		/* exec SID */
+	u32 create_sid;		/* fscreate SID */
+	u32 keycreate_sid;	/* keycreate SID */
+	u32 sockcreate_sid;	/* fscreate SID */
+};
+#endif
+
 #define fix_derived_permission(x)	\
 	do {						\
 		(x)->i_uid = SDCARDFS_I(x)->d_uid;	\
@@ -226,6 +244,8 @@ struct sdcardfs_mount_options {
 /* sdcardfs super-block data in memory */
 struct sdcardfs_sb_info {
 	struct super_block *lower_sb;
+	u32 lower_secid;
+
 	/* derived perm policy : some of options have been added 
 	 * to sdcardfs_mount_options (Android 4.4 support) */
 	struct sdcardfs_mount_options options;
