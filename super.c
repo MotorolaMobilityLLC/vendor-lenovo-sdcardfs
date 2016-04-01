@@ -212,12 +212,25 @@ static int sdcardfs_show_options(struct seq_file *m, struct dentry *root)
 	if (opts->fs_low_gid != 0)
 		seq_printf(m, ",gid=%u", opts->fs_low_gid);
 
+	if(((opts->upper_perms.uid != 0) || (opts->upper_perms.gid != 0)) &&
+	    (opts->upper_perms.fmask!= 0) && (opts->upper_perms.dmask!= 0)) {
+		seq_printf(m, ",upper=%u:%u:%04o:%04o",
+		    opts->upper_perms.uid,
+		    opts->upper_perms.gid,
+		    opts->upper_perms.fmask,
+		    opts->upper_perms.dmask);
+	}
+
 	if (opts->derive == DERIVE_NONE)
 		seq_printf(m, ",derive=none");
 	else if (opts->derive == DERIVE_LEGACY)
 		seq_printf(m, ",derive=legacy");
 	else if (opts->derive == DERIVE_UNIFIED)
 		seq_printf(m, ",derive=unified");
+	else if (opts->derive == DERIVE_PUBLIC)
+		seq_printf(m, ",derive=public");
+	else if (opts->derive == DERIVE_MULTI)
+		seq_printf(m, ",derive=multi");
 
 	if (opts->reserved_mb != 0)
 		seq_printf(m, ",reserved=%uMB", opts->reserved_mb);

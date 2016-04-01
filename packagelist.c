@@ -82,7 +82,7 @@ int get_caller_has_rw_locked(void *pkgl_id, derive_t derive) {
 	int ret;
 	
 	/* No additional permissions enforcement */
-	if (derive == DERIVE_NONE) {
+	if ((derive == DERIVE_NONE) || (derive == DERIVE_PUBLIC) || (derive == DERIVE_MULTI)) {
 		return 1;
 	}
 
