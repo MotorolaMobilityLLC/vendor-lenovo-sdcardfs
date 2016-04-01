@@ -26,6 +26,9 @@ static int sdcardfs_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	struct file *file, *lower_file;
 	const struct vm_operations_struct *lower_vm_ops;
 	struct vm_area_struct lower_vma;
+	const struct cred *saved_cred = NULL;
+	/* save current_cred and override it */
+	OVERRIDE_CRED(SDCARDFS_SB(vma->vm_file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG(" Just DBG: sdcardfs fault! \n");
 
@@ -47,6 +50,7 @@ static int sdcardfs_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	 */
 	lower_vma.vm_file = lower_file;
 	err = lower_vm_ops->fault(&lower_vma, vmf);
+	REVERT_CRED(saved_cred);
 	return err;
 }
 // 2014.10.11 merge vm_operations_struct->page_mkwrite from latest wrapfs to fix kernel panic,
@@ -58,6 +62,9 @@ static int sdcardfs_page_mkwrite(struct vm_area_struct *vma,
 	struct file *file, *lower_file;
 	const struct vm_operations_struct *lower_vm_ops;
 	struct vm_area_struct lower_vma;
+	const struct cred *saved_cred = NULL;
+	/* save current_cred and override it */
+	OVERRIDE_CRED(SDCARDFS_SB(vma->vm_file->f_path.dentry->d_sb), saved_cred);
 
 	SDFS_DBG(" Just DBG: sdcardfs page_mkwrite ! \n");
 
@@ -83,6 +90,7 @@ static int sdcardfs_page_mkwrite(struct vm_area_struct *vma,
 	lower_vma.vm_file = lower_file;
 	err = lower_vm_ops->page_mkwrite(&lower_vma, vmf);
 out:
+	REVERT_CRED(saved_cred);
 	return err;
 }
 
