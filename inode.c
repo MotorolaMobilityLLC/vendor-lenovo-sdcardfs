@@ -19,6 +19,7 @@
  */
 
 #include "sdcardfs.h"
+#include <linux/fsnotify.h>
 
 #ifdef CONFIG_SECURITY_SELINUX
 static inline void sdcardfs_override_secid(struct sdcardfs_sb_info *sbi,
@@ -199,6 +200,8 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 	err = mnt_want_write(lower_path.mnt);
 	if (err)
 		goto out_unlock;
+
+	sdcardfs_drop_shared_icache(dir->i_sb, lower_dentry->d_inode);
 	err = vfs_unlink(lower_dir_inode, lower_dentry);
 
 	/*
@@ -227,6 +230,41 @@ out_unlock:
 	REVERT_CRED(saved_cred);
 out_eacces:
 	return err;
+}
+
+/* drop all shared dentries from other superblocks */
+void sdcardfs_drop_sb_icache(struct super_block *sb, unsigned long ino)
+{
+	struct inode *inode = ilookup(sb, ino);
+	struct dentry *dentry, *dir_dentry;
+
+	if (!inode)
+		return;
+
+	dentry = d_find_any_alias(inode);
+
+	if (!dentry) {
+		iput(inode);
+		return;
+	}
+
+	dir_dentry = lock_parent(dentry);
+
+	mutex_lock(&inode->i_mutex);
+	set_nlink(inode, sdcardfs_lower_inode(inode)->i_nlink);
+	d_drop(dentry);
+	dont_mount(dentry);
+	mutex_unlock(&inode->i_mutex);
+
+	/* We don't d_delete() NFS sillyrenamed files--they still exist. */
+	if (!(dentry->d_flags & DCACHE_NFSFS_RENAMED)) {
+		fsnotify_link_count(inode);
+		d_delete(dentry);
+	}
+
+	unlock_dir(dir_dentry);
+	dput(dentry);
+	iput(inode);
 }
 
 #if 0
@@ -457,6 +495,8 @@ static int sdcardfs_rmdir(struct inode *dir, struct dentry *dentry)
 	err = mnt_want_write(lower_path.mnt);
 	if (err)
 		goto out_unlock;
+
+	sdcardfs_drop_shared_icache(dir->i_sb, lower_dentry->d_inode);
 	err = vfs_rmdir(lower_dir_dentry->d_inode, lower_dentry);
 	if (err)
 		goto out;

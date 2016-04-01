@@ -255,6 +255,8 @@ struct sdcardfs_mount_options {
 /* sdcardfs super-block data in memory */
 struct sdcardfs_sb_info {
 	struct super_block *lower_sb;
+	struct super_block *s_sb;
+	struct list_head s_list;
 	u32 lower_secid;
 
 	/* derived perm policy : some of options have been added 
@@ -266,6 +268,10 @@ struct sdcardfs_sb_info {
 	void *pkgl_id;
 	char *devpath;   	//2015.01.04  merge from latest Nxx50
 };
+
+void sdcardfs_drop_shared_icache(struct super_block *, struct inode *);
+void sdcardfs_drop_sb_icache(struct super_block *, unsigned long);
+void sdcardfs_add_super(struct sdcardfs_sb_info *, struct super_block *);
 
 /*
  * inode to private data
