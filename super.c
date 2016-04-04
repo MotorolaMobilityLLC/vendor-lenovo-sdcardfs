@@ -45,6 +45,31 @@ static void sdcardfs_remove_super(struct sdcardfs_sb_info *sbi)
 	spin_unlock(&sdcardfs_list_lock);
 }
 
+void sdcardfs_truncate_share(struct super_block *sb, struct inode *lower_inode, loff_t newsize)
+{
+	struct list_head *p;
+	struct sdcardfs_sb_info *sbi;
+	struct super_block *lower_sb = lower_inode->i_sb;
+	struct inode *inode;
+
+	spin_lock(&sdcardfs_list_lock);
+	p = sdcardfs_list.next;
+	while (p != &sdcardfs_list) {
+		sbi = list_entry(p, struct sdcardfs_sb_info, s_list);
+		if (sbi->s_sb == sb || sbi->lower_sb != lower_sb) {
+			p = p->next;
+			continue;
+		}
+		spin_unlock(&sdcardfs_list_lock);
+		inode = ilookup(sbi->s_sb, lower_inode->i_ino);
+		if (inode)
+			truncate_setsize(inode, newsize);
+		spin_lock(&sdcardfs_list_lock);
+		p = p->next;
+	}
+	spin_unlock(&sdcardfs_list_lock);
+}
+
 void sdcardfs_drop_shared_icache(struct super_block *sb, struct inode *lower_inode)
 {
 	struct list_head *p;
