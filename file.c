@@ -96,7 +96,8 @@ out_revert_cred:
 	return err;
 }
 
-static int sdcardfs_readdir(struct file *file, void *dirent, filldir_t filldir)
+//static int sdcardfs_readdir(struct file *file, void *dirent, filldir_t filldir)
+static int sdcardfs_readdir(struct file *file, struct dir_context *ctx)
 {
 	int err = 0;
 	struct file *lower_file = NULL;
@@ -110,7 +111,7 @@ static int sdcardfs_readdir(struct file *file, void *dirent, filldir_t filldir)
 	lower_file = sdcardfs_lower_file(file);
 
 	lower_file->f_pos = file->f_pos;
-	err = vfs_readdir(lower_file, filldir, dirent);
+	err = iterate_dir(lower_file, ctx);
 	file->f_pos = lower_file->f_pos;
 	if (err >= 0)		/* copy the atime */
 		fsstack_copy_attr_atime(dentry->d_inode,
@@ -578,8 +579,8 @@ const struct file_operations sdcardfs_main_fops = {
 const struct file_operations sdcardfs_dir_fops = {
 	.llseek		= sdcardfs_file_llseek, //2015.01.04  merge from latest wrapfs	
 	.read		= generic_read_dir,
-//	.iterate	= sdcardfs_readdir,
-	.readdir	= sdcardfs_readdir,
+	.iterate	= sdcardfs_readdir,
+//	.readdir	= sdcardfs_readdir,
 	.unlocked_ioctl	= sdcardfs_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= sdcardfs_compat_ioctl,
