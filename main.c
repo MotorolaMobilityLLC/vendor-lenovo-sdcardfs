@@ -23,7 +23,11 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/parser.h>
-#include "../internal.h"
+
+/*
+ * dcache.c
+ */
+extern struct dentry *__d_alloc(struct super_block *, const struct qstr *);
 
 enum {
 	Opt_uid, 
