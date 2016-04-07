@@ -48,8 +48,8 @@ const struct cred * override_fsids(struct sdcardfs_sb_info* sbi)
 	if (!cred) 
 		return NULL; 
 
-	cred->fsuid = sbi->options.fs_low_uid;
-	cred->fsgid = sbi->options.fs_low_gid;
+	cred->fsuid.val = sbi->options.fs_low_uid;
+	cred->fsgid.val = sbi->options.fs_low_gid;
 	sdcardfs_override_secid(sbi, cred);
 
 	old_cred = override_creds(cred); 
@@ -202,7 +202,7 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 		goto out_unlock;
 
 	sdcardfs_drop_shared_icache(dir->i_sb, lower_dentry->d_inode);
-	err = vfs_unlink(lower_dir_inode, lower_dentry);
+	err = vfs_unlink(lower_dir_inode, lower_dentry, NULL);
 
 	/*
 	 * Note: unlinking on top of NFS can cause silly-renamed files.
@@ -617,7 +617,7 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		goto out_drop_old_write;
 
 	err = vfs_rename(lower_old_dir_dentry->d_inode, lower_old_dentry,
-			 lower_new_dir_dentry->d_inode, lower_new_dentry);
+			 lower_new_dir_dentry->d_inode, lower_new_dentry, NULL, 0);
 	if (err)
 		goto out_err;
 
@@ -908,7 +908,7 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	 * tries to open(), unlink(), then ftruncate() a file.
 	 */
 	mutex_lock(&lower_dentry->d_inode->i_mutex);
-	err = notify_change(lower_dentry, &lower_ia); /* note: lower_ia */
+	err = notify_change(lower_dentry, &lower_ia, NULL); /* note: lower_ia */
 	mutex_unlock(&lower_dentry->d_inode->i_mutex);
 	/*lenovo-sw jixj remove begin, confict with binder.c and happen to dead lock*/
 	#if 0
