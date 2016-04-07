@@ -371,9 +371,9 @@ static int sdcardfs_fsync(struct file *file, loff_t start, loff_t end,
 
 	SDFS_DBG("d_name='%s'\n",file->f_path.dentry->d_name.name);
 	//2015.01.04  merge from latest wrapfs	
-	err = generic_file_fsync(file, start, end, datasync);
+	//err = generic_file_fsync(file, start, end, datasync);
 	// in kernel v3.16 generic_file_fsync will will triger a kernel panic
-	//err = __generic_file_fsync(file, start, end, datasync);
+	err = __generic_file_fsync(file, start, end, datasync);
 	if (err)
 		goto out;
 	lower_file = sdcardfs_lower_file(file);
