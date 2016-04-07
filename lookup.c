@@ -21,6 +21,9 @@
 #include "sdcardfs.h"
 #include "linux/delay.h"
 
+extern int vfs_path_lookup(struct dentry *, struct vfsmount *,
+			   const char *, unsigned int, struct path *);
+
 /* The dentry cache is just so we have properly sized dentries */
 static struct kmem_cache *sdcardfs_dentry_cachep;
 
