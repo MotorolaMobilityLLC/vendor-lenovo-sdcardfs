@@ -495,7 +495,7 @@ out:
 	REVERT_CRED(saved_cred);
 	return err;
 }
-#if 0  //current kernel version don't support these api
+#if 1  //current kernel version don't support these api
 /*
  * Wrapfs read_iter, redirect modified iocb to lower read_iter
  */
@@ -571,8 +571,8 @@ const struct file_operations sdcardfs_main_fops = {
 	.fasync		= sdcardfs_fasync,
 	.aio_read	= sdcardfs_aio_read,
 	.aio_write	= sdcardfs_aio_write,
-	//.read_iter	= sdcardfs_read_iter,
-	//.write_iter	= sdcardfs_write_iter,
+	.read_iter	= sdcardfs_read_iter,
+	.write_iter	= sdcardfs_write_iter,
 };
 
 /* trimmed directory options */
