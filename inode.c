@@ -20,6 +20,7 @@
 
 #include "sdcardfs.h"
 #include <linux/fsnotify.h>
+#include <linux/fs_struct.h>
 
 #ifdef CONFIG_SECURITY_SELINUX
 static inline void sdcardfs_override_secid(struct sdcardfs_sb_info *sbi,
@@ -76,6 +77,7 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	struct path lower_path;
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
 	const struct cred *saved_cred = NULL;
+	int mask = 0;
 
 	int has_rw = get_caller_has_rw_locked(sbi->pkgl_id, sbi->options.derive);
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
@@ -89,6 +91,8 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred);
+	/* clear the umask so that the lower mode works for create cases */
+	mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -117,6 +121,9 @@ out_unlock:
 	unlock_dir(lower_parent_dentry);
 	sdcardfs_put_lower_path(dentry, &lower_path);
 	REVERT_CRED(saved_cred);
+	/* restore the old umask */
+	if (mask)
+		mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 out_eacces:
 	return err;
 }
@@ -337,6 +344,7 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	char *nomedia_fullpath;
 	int fullpath_namelen;
 	int touch_err = 0;
+	int mask = 0;
 
 	int has_rw = get_caller_has_rw_locked(sbi->pkgl_id, sbi->options.derive);
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
@@ -350,6 +358,8 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred);
+	/* clear the umask so that the lower mode works for create cases */
+	mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 
 	/* check disk space */
 	if (!check_min_free_space(dentry, 0, 1)) {
@@ -377,7 +387,7 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		unlock_dir(lower_parent_dentry);
 		goto out;
 	}
-	
+
 	/* if it is a local obb dentry, setup it with the base obbpath */
 	if(need_graft_path(dentry)) {
 
@@ -458,6 +468,9 @@ out_unlock:
 	sdcardfs_put_lower_path(dentry, &lower_path);
 out_revert:
 	REVERT_CRED(saved_cred);
+	/* restore the old umask */
+	if (mask)
+		mask = xchg(&current->fs->umask, mask & S_IRWXUGO);
 out_eacces:
 	return err;
 }
