@@ -89,6 +89,11 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 		goto out_eacces;
 	}
 
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_create access disable\n");
+		err = -ENOENT;
+		goto out_eacces;
+	}
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred);
 	/* clear the umask so that the lower mode works for create cases */
@@ -196,6 +201,11 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 		goto out_eacces;
 	}
 
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_unlink access disable\n");
+		err = -ENOENT;
+		goto out_eacces;
+	}
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred);
 
@@ -353,6 +363,12 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 						 "  dentry: %s, task:%s\n",
 						 __func__, dentry->d_name.name, current->comm);
 		err = -EACCES;
+		goto out_eacces;
+	}
+
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_mkdir access disable\n");
+		err = -ENOENT;
 		goto out_eacces;
 	}
 
@@ -600,6 +616,12 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		goto out_eacces;
 	}
 
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_rename access disable\n");
+		err = -ENOENT;
+		goto out_eacces;
+	}
+
 	/* save current_cred and override it */
 	OVERRIDE_CRED(SDCARDFS_SB(old_dir->i_sb), saved_cred);
 
@@ -788,6 +810,12 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	struct dentry *parent;
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
 	const struct cred *saved_cred;
+
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_getattr access disable\n");
+		return -ENOENT;
+	}
+
 	OVERRIDE_CRED(sbi, saved_cred);
 
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
@@ -840,6 +868,13 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	const struct cred *saved_cred;
 
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
+
+	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
+		SDFS_ERR("sdcardfs_setattr access disable\n");
+		err = -ENOENT;
+		goto out_err;
+	}
+
 	inode = dentry->d_inode;
 
 	/*
