@@ -90,7 +90,7 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	}
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_create access disable\n");
+		SDFS_DBG("sdcardfs_create access disable\n");
 		err = -ENOENT;
 		goto out_eacces;
 	}
@@ -202,7 +202,7 @@ static int sdcardfs_unlink(struct inode *dir, struct dentry *dentry)
 	}
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_unlink access disable\n");
+		SDFS_DBG("sdcardfs_unlink access disable\n");
 		err = -ENOENT;
 		goto out_eacces;
 	}
@@ -367,7 +367,7 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 	}
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_mkdir access disable\n");
+		SDFS_DBG("sdcardfs_mkdir access disable\n");
 		err = -ENOENT;
 		goto out_eacces;
 	}
@@ -617,7 +617,7 @@ static int sdcardfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	}
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_rename access disable\n");
+		SDFS_DBG("sdcardfs_rename access disable\n");
 		err = -ENOENT;
 		goto out_eacces;
 	}
@@ -812,7 +812,7 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	const struct cred *saved_cred;
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_getattr access disable\n");
+		SDFS_DBG("sdcardfs_getattr access disable\n");
 		return -ENOENT;
 	}
 
@@ -870,7 +870,7 @@ static int sdcardfs_setattr(struct dentry *dentry, struct iattr *ia)
 	SDFS_DBG("dentry='%s' parent='%s' \n",dentry->d_name.name,dentry->d_parent->d_name.name);
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_setattr access disable\n");
+		SDFS_DBG("sdcardfs_setattr access disable\n");
 		err = -ENOENT;
 		goto out_err;
 	}

@@ -135,7 +135,7 @@ static int sdcardfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 	struct sdcardfs_sb_info *sbi = SDCARDFS_SB(dentry->d_sb);
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
-		SDFS_ERR("sdcardfs_statfs access disable\n");
+		SDFS_DBG("sdcardfs_statfs access disable\n");
 		return -ENOENT;
 	}
 
