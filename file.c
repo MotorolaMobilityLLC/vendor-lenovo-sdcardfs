@@ -294,7 +294,7 @@ static int sdcardfs_open(struct inode *inode, struct file *file)
 
 	if (sbi->flag && SDCARDFS_MOUNT_ACCESS_DISABLE) {
 		err = -ENOENT;
-		SDFS_ERR("sdcardfs_open access disable\n");
+		SDFS_DBG("sdcardfs_open access disable\n");
 		goto out_revert_cred;
 	}
 
